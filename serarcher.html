@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lebensmittel-Nährwertsuche</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212; /* Dunkler Hintergrund */
+            color: #e0e0e0; /* Heller Text */
+        }
+
+        header {
+            background-color: #333;
+            color: #ff9800;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6); /* Schatten hinzufügen */
+        }
+
+        main {
+            padding: 20px;
+        }
+
+        #search-input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background-color: #222;
+            color: #e0e0e0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        #search-input:focus {
+            background-color: #333;
+            color: #ff9800;
+            outline: none;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #search-button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #ff9800;
+            color: #121212;
+            cursor: pointer;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        #search-button:hover {
+            background-color: #e68900;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+
+        .product {
+            background-color: #1e1e1e;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, box-shadow 0.3s;
+            position: relative;
+        }
+
+        .product:hover {
+            background-color: #2c2c2c;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+        }
+
+        .product::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 5px;
+            background: radial-gradient(circle, rgba(255, 165, 0, 0.1), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 0;
+        }
+
+        .product:hover::before {
+            opacity: 1;
+        }
+
+        .product h2, .product p {
+            margin: 0;
+            padding: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .product h2 {
+            margin-bottom: 10px;
+            font-size: 1.5em;
+            color: #ff9800;
+            text-shadow: 0 0 10px rgba(255, 165, 0, 0.8); /* Glüheffekt für den Titel */
+        }
+
+        .product p {
+            font-size: 1em;
+        }
+
+        @keyframes glow {
+            0% { text-shadow: 0 0 5px #ff9800, 0 0 10px #ff9800, 0 0 15px #ff9800, 0 0 20px #ff9800; }
+            50% { text-shadow: 0 0 10px #ff9800, 0 0 20px #ff9800, 0 0 30px #ff9800, 0 0 40px #ff9800; }
+            100% { text-shadow: 0 0 5px #ff9800, 0 0 10px #ff9800, 0 0 15px #ff9800, 0 0 20px #ff9800; }
+        }
+
+        .product p {
+            animation: glow 1.5s infinite alternate; /* Glüheffekt für den Text */
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Lebensmittel-Nährwertsuche</h1>
+    </header>
+
+    <main>
+        <input type="text" id="search-input" placeholder="Nach Lebensmitteln suchen...">
+        <button id="search-button">Suche</button>
+
+        <div id="results"></div>
+    </main>
+
+    <script>
+        document.getElementById('search-button').addEventListener('click', function() {
+            let query = document.getElementById('search-input').value.trim();
+            if (query) {
+                let normalizedQuery = normalizeQuery(query);
+
+                fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(normalizedQuery)}&search_simple=1&action=process&json=1`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('API Response:', data); // Log API response for debugging
+                        displayProductList(data);
+                    })
+                    .catch(error => {
+                        console.error('Fehler beim Abrufen der Daten:', error);
+                        displayMessage('Fehler beim Abrufen der Daten. Bitte versuchen Sie es später erneut.');
+                    });
+            } else {
+                displayMessage('Bitte geben Sie einen Produktnamen ein.');
+            }
+        });
+
+        function normalizeQuery(query) {
+            return query.replace(/\s+/g, '').toLowerCase();
+        }
+
+        function displayProductList(data) {
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = '';
+
+            if (data && data.products && data.products.length > 0) {
+                data.products.forEach(product => {
+                    let productDiv = document.createElement('div');
+                    productDiv.classList.add('product');
+                    productDiv.textContent = product.product_name || 'Unbekanntes Produkt';
+                    productDiv.addEventListener('click', () => fetchProductDetails(product.code));
+                    resultsContainer.appendChild(productDiv);
+                });
+            } else {
+                displayMessage('Keine Produkte gefunden. Bitte überprüfen Sie den Namen.');
+            }
+        }
+
+        function fetchProductDetails(code) {
+            fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`)
+                .then(response => response.json())
+                .then(data => displayProductDetails(data))
+                .catch(error => console.error('Fehler beim Abrufen der Produktdetails:', error));
+        }
+
+        function displayProductDetails(data) {
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = '';
+
+            if (data && data.product) {
+                let product = data.product;
+                let productDiv = document.createElement('div');
+                productDiv.classList.add('product');
+                
+                let productName = document.createElement('h2');
+                productName.textContent = product.product_name || 'Unbekanntes Produkt';
+                productDiv.appendChild(productName);
+
+                let nutritionInfo = document.createElement('p');
+                if (product.nutriments) {
+                    nutritionInfo.innerHTML = `
+                        <strong>Nährwerte pro 100g/ml:</strong><br>
+                        Kalorien: ${product.nutriments['energy-kcal'] || 'N/A'} kcal<br>
+                        Fett: ${product.nutriments.fat || 'N/A'} g<br>
+                        Kohlenhydrate: ${product.nutriments.carbohydrates || 'N/A'} g<br>
+                        Zucker: ${product.nutriments.sugars || 'N/A'} g<br>
+                        Protein: ${product.nutriments.proteins || 'N/A'} g
+                    `;
+                    
+                    // Berechnung der Nährwerte für die gesamte Packung, falls die Mengenangaben vorhanden sind
+                    if (product.quantity) {
+                        let quantity = product.quantity.toLowerCase();
+                        let quantityValue;
+                        let displayQuantity;
+
+                        if (quantity.includes('l')) {
+                            quantityValue = parseFloat(quantity); // Menge in Litern beibehalten
+                            displayQuantity = `${quantityValue.toFixed(2)} l`;
+                        } else if (quantity.includes('ml')) {
+                            quantityValue = parseFloat(quantity) / 1000; // Umrechnung von Millilitern in Liter
+                            displayQuantity = `${quantityValue.toFixed(2)} l`;
+                        } else {
+                            // Falls keine Einheit angegeben ist, standardmäßig in Gramm (g)
+                            quantityValue = parseFloat(quantity) / 1000; // Annahme: Umrechnung von Gramm in Liter (vereinfachte Annahme)
+                            displayQuantity = `${quantityValue.toFixed(2)} l`;
+                        }
+
+                        let totalEnergy = (product.nutriments['energy-kcal'] || 0) * (quantityValue * 1000 / 1000); // Umrechnung in kJ für die gesamte Menge
+                        let totalFat = (product.nutriments.fat || 0) * (quantityValue * 1000 / 100);
+                        let totalCarbohydrates = (product.nutriments.carbohydrates || 0) * (quantityValue * 1000 / 100);
+                        let totalSugars = (product.nutriments.sugars || 0) * (quantityValue * 1000 / 100);
+                        let totalProteins = (product.nutriments.proteins || 0) * (quantityValue * 1000 / 100);
+
+                        nutritionInfo.innerHTML += `
+                            <br><strong>Nährwerte für die gesamte Packung (${displayQuantity}):</strong><br>
+                            Kalorien: ${totalEnergy.toFixed(2)} kJ<br>
+                            Fett: ${totalFat.toFixed(2)} g<br>
+                            Kohlenhydrate: ${totalCarbohydrates.toFixed(2)} g<br>
+                            Zucker: ${totalSugars.toFixed(2)} g<br>
+                            Protein: ${totalProteins.toFixed(2)} g
+                        `;
+                    }
+                } else {
+                    nutritionInfo.textContent = 'Keine Nährwertinformationen verfügbar.';
+                }
+                productDiv.appendChild(nutritionInfo);
+                resultsContainer.appendChild(productDiv);
+            } else {
+                displayMessage('Produktdetails nicht gefunden.');
+            }
+        }
+
+        function displayMessage(message) {
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = `<p>${message}</p>`;
+        }
+    </script>
+</body>
+</html>
